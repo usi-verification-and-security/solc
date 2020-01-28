@@ -65,7 +65,7 @@ void Z3CHCInterface::registerRelation(Expression const& _expr)
 void Z3CHCInterface::addRule(Expression const& _expr, string const& _name)
 {
 	z3::expr rule = m_z3Interface->toZ3Expr(_expr);
-	cout << rule << "\n\n";
+	//cout << rule << "\n\n";
 	if (m_z3Interface->constants().empty())
 		m_solver.add_rule(rule, m_context->str_symbol(_name.c_str()));
 	else

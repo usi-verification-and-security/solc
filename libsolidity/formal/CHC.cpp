@@ -109,6 +109,7 @@ void CHC::analyze(SourceUnit const& _source)
 			createErrorBlock();
 			connectBlocks(get<0>(constraints), error(), get<1>(constraints) && (get<2>(constraints) == assertion->id()));
 			auto [result, model] = query(error(), assertion->location());
+            auto model2 = model; // For CLion (unused variable)
 			if (result == smt::CheckResult::SATISFIABLE)
 				m_outerErrorReporter.warning(
 					assertion->location(),
