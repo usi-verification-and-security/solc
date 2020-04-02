@@ -20,6 +20,11 @@
 #include <liblangutil/Exceptions.h>
 #include <libsolutil/CommonIO.h>
 
+#include <boost/algorithm/string/join.hpp>
+
+#include <set>
+#include <stack>
+
 using namespace std;
 using namespace solidity;
 using namespace solidity::frontend::smt;
@@ -33,17 +38,7 @@ Z3CHCInterface::Z3CHCInterface():
 	z3::set_param("rewriter.pull_cheap_ite", true);
 	z3::set_param("rlimit", Z3Interface::resourceLimit);
 
-	// Spacer options.
-	// These needs to be set in the solver.
-	// https://github.com/Z3Prover/z3/blob/master/src/muz/base/fp_params.pyg
-	z3::params p(*m_context);
-	// These are useful for solving problems with arrays and loops.
-	// Use quantified lemma generalizer.
-	p.set("fp.spacer.q3.use_qgen", true);
-	p.set("fp.spacer.mbqi", false);
-	// Ground pobs by using values from a model.
-	p.set("fp.spacer.ground_pobs", false);
-	m_solver.set(p);
+	enableSpacerOptimizations();
 }
 
 void Z3CHCInterface::declareVariable(string const& _name, SortPointer const& _sort)
@@ -60,6 +55,7 @@ void Z3CHCInterface::registerRelation(Expression const& _expr)
 void Z3CHCInterface::addRule(Expression const& _expr, string const& _name)
 {
 	z3::expr rule = m_z3Interface->toZ3Expr(_expr);
+	//cout << rule << "\n\n";
 	if (m_z3Interface->constants().empty())
 		m_solver.add_rule(rule, m_context->str_symbol(_name.c_str()));
 	else
@@ -72,10 +68,9 @@ void Z3CHCInterface::addRule(Expression const& _expr, string const& _name)
 	}
 }
 
-pair<CheckResult, vector<string>> Z3CHCInterface::query(Expression const& _expr)
+pair<CheckResult, CHCSolverInterface::Graph> Z3CHCInterface::query(Expression const& _expr)
 {
 	CheckResult result;
-	vector<string> values;
 	try
 	{
 		z3::expr z3Expr = m_z3Interface->toZ3Expr(_expr);
@@ -84,18 +79,24 @@ pair<CheckResult, vector<string>> Z3CHCInterface::query(Expression const& _expr)
 		case z3::check_result::sat:
 		{
 			result = CheckResult::SATISFIABLE;
-			// TODO retrieve model.
+			auto proof = m_solver.get_answer();
+			//cout << proof << endl;
+			auto cex = cexGraph(proof);
+
+			return {result, cex};
 			break;
 		}
 		case z3::check_result::unsat:
 		{
 			result = CheckResult::UNSATISFIABLE;
+			cout << "UNSAT\n" << m_solver.get_answer() << endl;
 			// TODO retrieve invariants.
 			break;
 		}
 		case z3::check_result::unknown:
 		{
 			result = CheckResult::UNKNOWN;
+			//cout << "UNKNOWN\n" << m_solver.reason_unknown() << endl;
 			break;
 		}
 		}
@@ -104,8 +105,120 @@ pair<CheckResult, vector<string>> Z3CHCInterface::query(Expression const& _expr)
 	catch (z3::exception const&)
 	{
 		result = CheckResult::ERROR;
-		values.clear();
 	}
 
-	return make_pair(result, values);
+	return {result, {}};
+}
+
+void Z3CHCInterface::disableSpacerOptimizations()
+{
+	// Spacer options.
+	// These needs to be set in the solver.
+	// https://github.com/Z3Prover/z3/blob/master/src/muz/base/fp_params.pyg
+	z3::params p(*m_context);
+	// These are useful for solving problems with arrays and loops.
+	// Use quantified lemma generalizer.
+	p.set("fp.spacer.q3.use_qgen", true);
+	p.set("fp.spacer.mbqi", false);
+	// Ground pobs by using values from a model.
+	p.set("fp.spacer.ground_pobs", false);
+
+	// Disable Spacer optimization for counterexample generation.
+	p.set("fp.xform.slice", false);
+	p.set("fp.xform.inline_linear", false);
+	p.set("fp.xform.inline_eager", false);
+
+	m_solver.set(p);
+}
+
+void Z3CHCInterface::enableSpacerOptimizations()
+{
+	// Spacer options.
+	// These needs to be set in the solver.
+	// https://github.com/Z3Prover/z3/blob/master/src/muz/base/fp_params.pyg
+	z3::params p(*m_context);
+	// These are useful for solving problems with arrays and loops.
+	// Use quantified lemma generalizer.
+	p.set("fp.spacer.q3.use_qgen", true);
+	p.set("fp.spacer.mbqi", false);
+	// Ground pobs by using values from a model.
+	p.set("fp.spacer.ground_pobs", false);
+
+	m_solver.set(p);
+}
+
+/**
+Convert a ground refutation into a linear or nonlinear counterexample.
+The counterexample is given as an implication graph of the form
+`premises => conclusion` where `premises` are the predicates
+from the body of nonlinear clauses, representing the proof graph.
+*/
+CHCSolverInterface::Graph Z3CHCInterface::cexGraph(z3::expr const& _proof)
+{
+	Graph graph;
+
+	std::stack<z3::expr> proof_stack;
+	proof_stack.push(_proof);
+
+	std::set<unsigned> visited;
+	visited.insert(_proof.id());
+
+	while (!proof_stack.empty())
+	{
+		z3::expr proof_node = proof_stack.top();
+		proof_stack.pop();
+
+		if (proof_node.is_app() && proof_node.decl().decl_kind() == Z3_OP_PR_HYPER_RESOLVE)
+		{
+			solAssert(proof_node.num_args() > 0, "");
+			for (unsigned i = 1; i < proof_node.num_args() - 1; ++i)
+			{
+				z3::expr child = proof_node.arg(i);
+				if (!visited.count(child.id()))
+				{
+					visited.insert(child.id());
+					proof_stack.push(child);
+				}
+
+				Node child_node = node(fact(child));
+				if (!graph.count(child_node))
+				{
+					graph[child_node] = {};
+					graph.at(child_node).first = arguments(fact(child));
+				}
+
+				Node proof = node(fact(proof_node));
+				if (!graph.count(proof))
+					graph[proof] = {};
+
+				graph.at(proof).first = arguments(fact(proof_node));
+				graph.at(proof).second.emplace_back(child_node);
+			}
+		}
+	}
+
+	return graph;
+}
+
+z3::expr Z3CHCInterface::fact(z3::expr const& _node)
+{
+	solAssert(_node.is_app(), "");
+	if (_node.num_args() == 0)
+		return _node;
+	return _node.arg(_node.num_args() - 1);
+}
+
+Z3CHCInterface::Node Z3CHCInterface::node(z3::expr const& _predicate)
+{
+	solAssert(_predicate.is_app(), "");
+	return _predicate.decl().name().str() + "_" + to_string(_predicate.id());
+}
+
+vector<string> Z3CHCInterface::arguments(z3::expr const& _predicate)
+{
+	solAssert(_predicate.is_app(), "");
+	vector<string> args;
+	for (unsigned i = 0; i < _predicate.num_args(); ++i)
+		args.emplace_back(_predicate.arg(i).to_string());
+	return args;
 }
