@@ -152,6 +152,7 @@ private:
 	/// @returns the current symbolic values of the current state variables.
 	std::vector<smt::Expression> currentStateVariables();
 
+	std::vector<smt::Expression> currentFunctionVariables(FunctionDefinition const& _function);
 	/// @returns the current symbolic values of the current function's
 	/// input and output parameters.
 	std::vector<smt::Expression> currentFunctionVariables();
@@ -179,9 +180,13 @@ private:
 	void addRule(smt::Expression const& _rule, std::string const& _ruleName);
 	/// @returns <true, empty> if query is unsatisfiable (safe).
 	/// @returns <false, model> otherwise.
-	std::pair<smt::CheckResult, std::vector<std::string>> query(smt::Expression const& _query, langutil::SourceLocation const& _location);
+	std::pair<smt::CheckResult, smt::CHCSolverInterface::Graph> query(smt::Expression const& _query, langutil::SourceLocation const& _location);
 
 	void addVerificationTarget(ASTNode const* _scope, smt::Expression _from, smt::Expression _constraints, smt::Expression _errorId);
+
+	std::string generateCounterexample(smt::CHCSolverInterface::Graph const& _graph, std::string const& _root);
+	std::string generateStateCounterexample(std::vector<std::string> const& _args);
+	std::string generateTxCounterexample(FunctionDefinition const& _function, std::vector<std::string> const& _args);
 	//@}
 
 	/// Misc.
@@ -267,6 +272,8 @@ private:
 	smt::SymbolicFunctionVariable const* m_breakDest = nullptr;
 	/// Block where a loop continue should go to.
 	smt::SymbolicFunctionVariable const* m_continueDest = nullptr;
+
+	std::map<std::string, ASTNode const*> m_symbolFunction;
 	//@}
 
 	/// CHC solver.

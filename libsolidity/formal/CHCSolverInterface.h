@@ -23,6 +23,9 @@
 
 #include <libsolidity/formal/SolverInterface.h>
 
+#include <map>
+#include <vector>
+
 namespace solidity::frontend::smt
 {
 
@@ -40,9 +43,13 @@ public:
 	/// Needs to bound all vars as universally quantified.
 	virtual void addRule(Expression const& _expr, std::string const& _name) = 0;
 
+	/// Each node represents a predicate, where `first` is the
+	/// predicate's name and `second` is the list of arguments.
+	using Node = std::string;
+	using Graph = std::map<Node, std::pair<std::vector<std::string>, std::vector<Node>>>;
 	/// Takes a function application and checks
 	/// for reachability.
-	virtual std::pair<CheckResult, std::vector<std::string>> query(
+	virtual std::pair<CheckResult, Graph> query(
 		Expression const& _expr
 	) = 0;
 };

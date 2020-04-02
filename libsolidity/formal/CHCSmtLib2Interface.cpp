@@ -83,7 +83,7 @@ void CHCSmtLib2Interface::addRule(smt::Expression const& _expr, std::string cons
 	);
 }
 
-pair<CheckResult, vector<string>> CHCSmtLib2Interface::query(smt::Expression const& _block)
+pair<CheckResult, CHCSolverInterface::Graph> CHCSmtLib2Interface::query(smt::Expression const& _block)
 {
 	string accumulated{};
 	swap(m_accumulatedOutput, accumulated);
@@ -108,7 +108,7 @@ pair<CheckResult, vector<string>> CHCSmtLib2Interface::query(smt::Expression con
 		result = CheckResult::ERROR;
 
 	// TODO collect invariants or counterexamples.
-	return make_pair(result, vector<string>{});
+	return {result, {}};
 }
 
 void CHCSmtLib2Interface::declareVariable(string const& _name, SortPointer const& _sort)
