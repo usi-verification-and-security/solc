@@ -1,4 +1,17 @@
-### 0.6.5 (unreleased)
+### 0.6.6 (unreleased)
+
+Language Features:
+
+
+Compiler Features:
+
+
+Bugfixes:
+ * SMTChecker: Fix internal error in the CHC engine when calling inherited functions internally.
+
+
+
+### 0.6.5 (2020-04-06)
 
 Important Bugfixes:
  * Code Generator: Restrict the size of dynamic memory arrays to 64 bits during creation at runtime fixing a possible overflow.
