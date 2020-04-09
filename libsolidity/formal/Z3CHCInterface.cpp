@@ -82,7 +82,7 @@ pair<CheckResult, CHCSolverInterface::Graph> Z3CHCInterface::query(Expression co
 			auto proof = m_solver.get_answer();
 			//cout << proof << endl;
 			auto cex = cexGraph(proof);
-
+            cout << cex.size() << "#########################################################\n";
 			return {result, cex};
 			break;
 		}
