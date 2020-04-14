@@ -1084,6 +1084,7 @@ string CHC::generateCounterexample(smt::CHCSolverInterface::Graph const& _graph,
 
 	string node = _root;
 	string firstSummary;
+	ContractDefinition const* targetContract = nullptr;
 	// summary && interface?
 	while (_graph.at(node).second.size() >= 1)
 	{
@@ -1122,6 +1123,13 @@ string CHC::generateCounterexample(smt::CHCSolverInterface::Graph const& _graph,
 				{
 					firstSummary = edge;
 
+					solAssert(targetContract == nullptr, "");
+					if (failedContract)
+						targetContract = failedContract;
+					else
+						targetContract = failedFun->annotation().contract;
+					solAssert(targetContract, "");
+
 					/// Generate counterexample message local to the failed assertion.
 					localState = generateStateCounterexample(failedArgs) + "\n";
 					if (failedFun)
@@ -1145,11 +1153,16 @@ string CHC::generateCounterexample(smt::CHCSolverInterface::Graph const& _graph,
 					}
 				}
 
-				string txCex = failedContract ? "constructor()" : generateTxCounterexample(*failedFun, failedArgs);
+				if (failedContract)
+					solAssert(failedContract == targetContract, "");
+				else
+					solAssert(failedFun->annotation().contract == targetContract, "");
+
+				string txCex = failedContract ? (failedContract->name() + "()") : generateTxCounterexample(*failedFun, failedArgs);
 				path.emplace_back(txCex);
 
-				if (!failedContract && !failedFun->isConstructor())
-					path.emplace_back("State: " + generateStateCounterexample(failedArgs));
+				//if (!failedContract && !failedFun->isConstructor())
+				//	path.emplace_back("State: " + generateStateCounterexample(failedArgs));
 			}
 			else if (edge.rfind("interface", 0) == 0)
 				node = edge;
@@ -1160,7 +1173,18 @@ string CHC::generateCounterexample(smt::CHCSolverInterface::Graph const& _graph,
 			break;
 	}
 
-	return localState + "\nTransaction trace:\n" + boost::algorithm::join(boost::adaptors::reverse(path), "\n");
+	string wrapper = "Example contract that breaks the assertion:\n";
+	wrapper += "import \"" + targetContract->sourceUnitName() + "\";\n" \
+		"contract AssertFail {\n" \
+		"	function test() public {\n" \
+		"		" + targetContract->name() + " x = new " + path.back() + ";\n";
+	auto rpath = boost::adaptors::reverse(path);
+	rpath.pop_front();
+	for (auto const& call: rpath)
+		wrapper += "		x." + call + ";\n";
+	wrapper += "	}\n}";
+
+	return localState + "\nTransaction trace:\n" + boost::algorithm::join(boost::adaptors::reverse(path), "\n") + "\n\n" + wrapper + "\n";
 }
 
 string CHC::generateStateCounterexample(vector<string> const& _args)
@@ -1186,7 +1210,7 @@ string CHC::generateTxCounterexample(FunctionDefinition const& _function, vector
 	vector<string>::const_iterator first = _args.begin() + m_stateSorts.size() + 1;
 	vector<string>::const_iterator last = _args.begin() + m_stateSorts.size() + 1 + _function.parameters().size();
 	vector<string> functionArgs(first, last);
-	return (_function.isConstructor() ? "constructor" : _function.name()) +
+	return (_function.isConstructor() ? _function.annotation().contract->name() : _function.name()) +
 		"("
 		+ boost::algorithm::join(functionArgs, ", ") +
 		")";
