@@ -82,6 +82,16 @@ pair<CheckResult, CHCSolverInterface::Graph> Z3CHCInterface::query(Expression co
 			auto proof = m_solver.get_answer();
 			//cout << proof << endl;
 			auto cex = cexGraph(proof);
+			/*
+			// Uncomment the block to get the graph visualization.
+			// Put the output in c.dot and run:
+			// dot c.dot -T png -oc.png
+			cout << "digraph {\n";
+			for (auto const& [u, info]: cex)
+				for (auto const& v: info.second)
+					cout << "\"" << v << "\" -> \"" << u << "\"\n";
+			cout << "}" << endl;
+			*/
 
 			return {result, cex};
 			break;
@@ -96,7 +106,7 @@ pair<CheckResult, CHCSolverInterface::Graph> Z3CHCInterface::query(Expression co
 		case z3::check_result::unknown:
 		{
 			result = CheckResult::UNKNOWN;
-			//cout << "UNKNOWN\n" << m_solver.reason_unknown() << endl;
+			cout << "UNKNOWN\n" << m_solver.reason_unknown() << endl;
 			break;
 		}
 		}
@@ -157,11 +167,18 @@ CHCSolverInterface::Graph Z3CHCInterface::cexGraph(z3::expr const& _proof)
 {
 	Graph graph;
 
+	/// The root fact of the refutation proof is `false`.
+	/// The node itself is not a hyper resolution, so we need to
+	/// extract the `query` hyper resolution node from the
+	/// `false` node (the first child).
+	solAssert(_proof.is_app(), "");
+	solAssert(fact(_proof).decl().decl_kind() == Z3_OP_FALSE, "");
+
 	std::stack<z3::expr> proof_stack;
-	proof_stack.push(_proof);
+	proof_stack.push(_proof.arg(0));
 
 	std::set<unsigned> visited;
-	visited.insert(_proof.id());
+	visited.insert(_proof.arg(0).id());
 
 	while (!proof_stack.empty())
 	{
