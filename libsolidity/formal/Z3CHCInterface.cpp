@@ -70,6 +70,7 @@ void Z3CHCInterface::addRule(Expression const& _expr, string const& _name)
 
 pair<CheckResult, CHCSolverInterface::Graph> Z3CHCInterface::query(Expression const& _expr)
 {
+	//cout << m_solver << endl;
 	CheckResult result;
 	try
 	{
@@ -112,8 +113,9 @@ pair<CheckResult, CHCSolverInterface::Graph> Z3CHCInterface::query(Expression co
 		}
 		// TODO retrieve model / invariants
 	}
-	catch (z3::exception const&)
+	catch (z3::exception const& _err)
 	{
+		cout << _err.msg() << endl;
 		result = CheckResult::ERROR;
 	}
 

@@ -1019,6 +1019,14 @@ smt::Expression CHC::predicate(FunctionCall const& _funCall)
 		m_context.variable(*var)->increaseIndex();
 	args += contract->isLibrary() ? stateVariablesAtIndex(1, *contract) : currentStateVariables();
 
+	for (auto var: function->parameters())
+	{
+		if (!m_context.knownVariable(*var))
+			createVariable(*var);
+		m_context.variable(*var)->increaseIndex();
+		args.push_back(m_context.variable(*var)->currentValue());
+	}
+
 	auto const& returnParams = function->returnParameters();
 	for (auto param: returnParams)
 		if (m_context.knownVariable(*param))
