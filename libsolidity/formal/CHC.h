@@ -152,6 +152,7 @@ private:
 	/// @returns the current symbolic values of the current state variables.
 	std::vector<smt::Expression> currentStateVariables();
 
+	std::vector<smt::Expression> currentFunctionVariables(FunctionDefinition const& _function);
 	/// @returns the current symbolic values of the current function's
 	/// input and output parameters.
 	std::vector<smt::Expression> currentFunctionVariables();
