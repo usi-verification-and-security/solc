@@ -1090,6 +1090,8 @@ string CHC::generateCounterexample(smt::CHCSolverInterface::Graph const& _graph,
 	{
 		auto const& [args, edges] = _graph.at(node);
 		auto prevNode = node;
+		args.size();
+		edges.size();
 		for (auto const& edge: edges)
 		{
 			if (edge.rfind("summary", 0) == 0)
