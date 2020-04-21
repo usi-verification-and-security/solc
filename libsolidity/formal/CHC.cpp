@@ -201,7 +201,7 @@ void CHC::endVisit(ContractDefinition const& _contract)
 	else
 		inlineConstructorHierarchy(_contract);
 
-	connectBlocks(m_currentBlock, summary(_contract));
+	connectBlocks(m_currentBlock, summary(_contract), m_error.currentValue() == 0);
 
 	clearIndices(m_currentContract, nullptr);
 	vector<smt::Expression> symbArgs;
@@ -287,12 +287,26 @@ void CHC::endVisit(FunctionDefinition const& _function)
 		if (_function.isConstructor())
 		{
 			string suffix = m_currentContract->name() + "_" + to_string(m_currentContract->id());
-			auto constructorExit = createSymbolicBlock(constructorSort(), "constructor_exit_" + suffix);
-			connectBlocks(m_currentBlock, predicate(*constructorExit, currentFunctionVariables(_function)));
+			// TODO this if/else is a hack, FIXME
+			if (_function.scope() == m_currentContract)
+			{
+				solAssert(m_currentContract->constructor() == &_function, "");
+				auto constructorExit = createSymbolicBlock(constructorSort(), "constructor_exit_" + suffix);
+				connectBlocks(m_currentBlock, predicate(*constructorExit, currentFunctionVariables(_function)));
 
-			clearIndices(m_currentContract, m_currentFunction);
-			auto stateExprs = currentFunctionVariables(_function);
-			setCurrentBlock(*constructorExit, &stateExprs);
+				clearIndices(m_currentContract, m_currentFunction);
+				auto stateExprs = currentFunctionVariables(_function);
+				setCurrentBlock(*constructorExit, &stateExprs);
+			}
+			else
+			{
+				auto constructorExit = createSymbolicBlock(interfaceSort(), "constructor_exit_" + suffix);
+				connectBlocks(m_currentBlock, predicate(*constructorExit, currentStateVariables()));
+
+				clearIndices(m_currentContract, m_currentFunction);
+				auto stateExprs = currentStateVariables();
+				setCurrentBlock(*constructorExit, &stateExprs);
+			}
 		}
 		else
 		{
@@ -1036,7 +1050,11 @@ smt::Expression CHC::predicate(FunctionCall const& _funCall)
 	for (auto const& var: function->returnParameters())
 		args.push_back(m_context.variable(*var)->currentValue());
 
-	return (*m_summaries.at(contract).at(function))(args);
+	if (contract->isLibrary())
+		return (*m_summaries.at(contract).at(function))(args);
+
+	solAssert(m_currentContract, "");
+	return (*m_summaries.at(m_currentContract).at(function))(args);
 }
 
 void CHC::addRule(smt::Expression const& _rule, string const& _ruleName)
