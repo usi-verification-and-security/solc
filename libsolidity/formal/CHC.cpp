@@ -1029,8 +1029,9 @@ smt::Expression CHC::predicate(FunctionCall const& _funCall)
 
 	args += contract->isLibrary() ? stateVariablesAtIndex(0, *contract) : currentStateVariables();
 	args += symbolicArguments(_funCall);
-	for (auto const& var: m_stateVariables)
-		m_context.variable(*var)->increaseIndex();
+	if (!contract->isLibrary())
+		for (auto const& var: m_stateVariables)
+			m_context.variable(*var)->increaseIndex();
 	args += contract->isLibrary() ? stateVariablesAtIndex(1, *contract) : currentStateVariables();
 
 	for (auto var: function->parameters())
