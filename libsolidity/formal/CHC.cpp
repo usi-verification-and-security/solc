@@ -1074,7 +1074,14 @@ pair<smt::CheckResult, smt::CHCSolverInterface::Graph> CHC::query(smt::Expressio
 		if (auto spacer = dynamic_cast<smt::Z3CHCInterface*>(m_interface.get()))
 		{
 			spacer->disableSpacerOptimizations();
-			tie(result, graph) = m_interface->query(_query);
+			smt::CheckResult nonOptResult;
+			smt::CHCSolverInterface::Graph cexGraph;
+			tie(nonOptResult, cexGraph) = m_interface->query(_query);
+			if (nonOptResult == smt::CheckResult::SATISFIABLE)
+			{
+				result = nonOptResult;
+				graph = cexGraph;
+			}
 		}
 		break;
 	case smt::CheckResult::UNSATISFIABLE:
