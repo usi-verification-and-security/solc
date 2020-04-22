@@ -1029,8 +1029,9 @@ smt::Expression CHC::predicate(FunctionCall const& _funCall)
 
 	args += contract->isLibrary() ? stateVariablesAtIndex(0, *contract) : currentStateVariables();
 	args += symbolicArguments(_funCall);
-	for (auto const& var: m_stateVariables)
-		m_context.variable(*var)->increaseIndex();
+	if (!contract->isLibrary())
+		for (auto const& var: m_stateVariables)
+			m_context.variable(*var)->increaseIndex();
 	args += contract->isLibrary() ? stateVariablesAtIndex(1, *contract) : currentStateVariables();
 
 	for (auto var: function->parameters())
@@ -1073,7 +1074,14 @@ pair<smt::CheckResult, smt::CHCSolverInterface::Graph> CHC::query(smt::Expressio
 		if (auto spacer = dynamic_cast<smt::Z3CHCInterface*>(m_interface.get()))
 		{
 			spacer->disableSpacerOptimizations();
-			tie(result, graph) = m_interface->query(_query);
+			smt::CheckResult nonOptResult;
+			smt::CHCSolverInterface::Graph cexGraph;
+			tie(nonOptResult, cexGraph) = m_interface->query(_query);
+			if (nonOptResult == smt::CheckResult::SATISFIABLE)
+			{
+				result = nonOptResult;
+				graph = cexGraph;
+			}
 		}
 		break;
 	case smt::CheckResult::UNSATISFIABLE:
