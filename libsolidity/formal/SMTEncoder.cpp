@@ -1136,6 +1136,7 @@ pair<smt::Expression, smt::Expression> SMTEncoder::arithmeticOperation(
 		);
 
 	return {value, valueNoMod};
+	//return {valueNoMod, valueNoMod};
 }
 
 void SMTEncoder::compareOperation(BinaryOperation const& _op)

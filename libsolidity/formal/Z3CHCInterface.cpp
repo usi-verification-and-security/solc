@@ -83,7 +83,7 @@ pair<CheckResult, CHCSolverInterface::Graph> Z3CHCInterface::query(Expression co
 			auto proof = m_solver.get_answer();
 			//cout << proof << endl;
 			auto cex = cexGraph(proof);
-			/*
+			///*
 			// Uncomment the block to get the graph visualization.
 			// Put the output in c.dot and run:
 			// dot c.dot -T png -oc.png
@@ -92,7 +92,7 @@ pair<CheckResult, CHCSolverInterface::Graph> Z3CHCInterface::query(Expression co
 				for (auto const& v: info.second)
 					cout << "\"" << v << "\" -> \"" << u << "\"\n";
 			cout << "}" << endl;
-			*/
+			//*/
 
 			return {result, cex};
 			break;
