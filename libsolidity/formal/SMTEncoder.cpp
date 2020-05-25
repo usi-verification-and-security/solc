@@ -1135,8 +1135,9 @@ pair<smt::Expression, smt::Expression> SMTEncoder::arithmeticOperation(
 			value
 		);
 
-	return {value, valueNoMod};
-	//return {valueNoMod, valueNoMod};
+	// The first line enables MOD encoding, and the second INT encoding.
+	return {value, valueNoMod}; // mod
+	//return {valueNoMod, valueNoMod}; // noMod
 }
 
 void SMTEncoder::compareOperation(BinaryOperation const& _op)

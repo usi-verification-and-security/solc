@@ -1083,6 +1083,7 @@ pair<smt::CheckResult, smt::CHCSolverInterface::Graph> CHC::query(smt::Expressio
 				graph = cexGraph;
 			}
 		}
+		cout << "SAT\n";
 		break;
 	case smt::CheckResult::UNSATISFIABLE:
 		break;
